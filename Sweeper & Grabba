@@ -1,0 +1,50 @@
+//@version=5
+indicator("sweeper and grabba", overlay=true, precision=3)
+
+// Inputs for customization and fine-tuning
+swingLength = input.int(5, title="Swing Length", minval=2)
+zoneLookback = input.int(50, title="Zone Lookback Period", minval=10)
+zoneWidthMultiplier = input.float(0.002, title="Zone Width Multiplier", minval=0.0001)
+sensitivity = input.float(1.5, title="Sensitivity Multiplier", minval=0.1)
+
+// Function to identify swing highs and lows
+isSwingHigh(len) =>
+    high[len] > high[len + 1] and high[len] > high[len - 1] and high[len] > ta.highest(high[len + 2], 3)
+
+isSwingLow(len) =>
+    low[len] < low[len + 1] and low[len] < low[len - 1] and low[len] < ta.lowest(low[len + 2], 3)
+
+// Track recent swing highs and lows
+var float recentHigh = na
+var float recentLow = na
+if (isSwingHigh(swingLength))
+    recentHigh := high[swingLength]
+if (isSwingLow(swingLength))
+    recentLow := low[swingLength]
+
+// Calculate potential liquidity zones with added precision
+var float upperZone = na
+var float lowerZone = na
+
+// Define upper liquidity zone when price breaks recent high
+if (not na(recentHigh))
+    if (high > recentHigh)
+        upperZone := recentHigh + (zoneWidthMultiplier * recentHigh * sensitivity)
+
+// Define lower liquidity zone when price breaks recent low
+if (not na(recentLow))
+    if (low < recentLow)
+        lowerZone := recentLow - (zoneWidthMultiplier * recentLow * sensitivity)
+
+// Plotting the liquidity zones on the chart
+plot(upperZone, color=color.red, linewidth=2, style=plot.style_linebr, title="Upper Liquidity Zone")
+plot(lowerZone, color=color.green, linewidth=2, style=plot.style_linebr, title="Lower Liquidity Zone")
+
+// Highlight the zones where liquidity grabs occur
+liquidityGrab = (high > upperZone or low < lowerZone)
+bgcolor(liquidityGrab ? color.new(color.orange, 85) : na, title="Liquidity Grab Zone")
+
+// Optional: Alerts for liquidity sweeps
+if (liquidityGrab)
+    alert("Liquidity Grab Detected!", alert.freq_once_per_bar)
+
